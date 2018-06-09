@@ -1,0 +1,11 @@
+void myprint(int x) {
+   Print(x);
+}
+
+
+void main() {
+
+     myprint(1);
+     myprint(2);
+     myprint(3);
+}

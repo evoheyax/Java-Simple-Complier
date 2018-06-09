@@ -1,0 +1,469 @@
+options {
+  IGNORE_CASE=false;
+}
+
+PARSER_BEGIN(simplejava)
+
+public class simplejava {
+  
+}
+
+PARSER_END(simplejava)
+
+TOKEN_MGR_DECLS : 
+{
+	public static int numcomments = 0;
+	public static int braces = 0;
+}
+
+SKIP : 
+{
+    < " " >
+|	< "\n" >
+|   < "\t" >
+| 	< "//" (~["\n"])* "\n" >
+| 	< "/*" > { numcomments++; }  : IN_COMMENT
+}
+
+<IN_COMMENT>
+SKIP :
+{
+  	< "/*" > { numcomments++; }
+|	< "*/" > { if(--numcomments == 0) SwitchTo(DEFAULT); }
+|   < ~[] >
+}
+
+TOKEN : 
+{
+  	< IF: "if" >
+| 	< ELSE: "else" >
+| 	< WHILE: "while" >
+| 	< DO: "do" >
+|	< FOR: "for" >
+|	< CLASS: "class" >
+| 	< RETURN: "return" >
+| 	< NEW: "new" >
+| 	< TRUE: "true" >
+| 	< FALSE: "false" >
+|   < INTEGER_LITERAL: (["0"-"9"])+ >
+|   < IDENTIFIER: ["a"-"z","A"-"Z"](["a"-"z","A"-"Z","0"-"9", "_"])* >
+} 
+
+TOKEN : 
+{
+	< PLUS: "+" >
+|	< MINUS: "-" >
+| 	< MULTIPLY: "*" >
+| 	< DIVIDE: "/" >
+|	< GETS: "=" >
+| 	< LEFT_BRACKET: "[" >
+| 	< RIGHT_BRACKET: "]" >
+| 	< LEFT_BRACE: "{" >
+| 	< RIGHT_BRACE: "}" >
+| 	< LEFT_PARENTHESIS: "(" >
+| 	< RIGHT_PARENTHESIS: ")" >
+| 	< PERIOD: "." >
+| 	< COMMA: "," >
+|	< SEMICOLON: ";" >
+| 	< EQUALS: "==" >
+| 	< DOES_NOT_EQUAL: "!=" >
+| 	< LESS_THAN: "<" >
+| 	< GREATER_THAN: ">" >
+| 	< LESS_THAN_OR_EQUAL_TO: "<=" >
+| 	< GREATER_THAN_OR_EQUAL_TO: ">=" >
+| 	< AND: "&&" >
+| 	< OR: "||" >
+|	< BANG: "!" >
+| 	< INCREMENT: "++" >
+|	< DECREMENT: "--" >
+}
+
+public ASTProgram program():
+{
+	ASTClasses classes = new ASTClasses();
+	ASTFunctionDefinitions functiondefinitions = new ASTFunctionDefinitions();
+	ASTFunctionDefinition f;
+	ASTPrototype p;
+	ASTClass c;
+}
+
+{
+/*	(f = parseFunction()
+	{ functiondefinitions.addElement(f); })* */
+	  (c = parseClass() { classes.addElement(c); })*
+	   (f = parseFunction() { functiondefinitions.addElement(f); })*
+	   < EOF > { return new ASTProgram(classes, functiondefinitions, 0); }
+}
+
+// -----------------------------------------------------------------
+
+public ASTStatements parseBlock():
+{
+	ASTStatements ss = new ASTStatements();
+	ASTStatements se;
+}
+{	
+	<LEFT_BRACE> se = parseBlockPrime(ss) { return se; }
+}
+
+public ASTStatements parseBlockPrime(ASTStatements ss):
+{
+	ASTStatement s;
+}
+{
+	(s = parseStatement() { ss.addElement(s); } parseBlockPrime(ss) | <RIGHT_BRACE>)
+	{  return ss; }
+}
+
+// -----------------------------------------------------------------
+public ASTStatement parseStatement():
+{
+  ASTStatement s;
+  Token t1;
+}
+{
+	(
+	  	t1 = <IDENTIFIER> (s = parseAssignment(t1) | s = parseDeclarationStatement(t1) | s = parseFunctionCall(t1))
+		|	s = parseIf()
+		|	s = parseWhile()
+		|	s = parseBlock()
+		|	s = parseDoWhile()
+		|	s = parseFor()
+		|	s = parseReturn()
+		|  t1 = < SEMICOLON > {  return new ASTEmptyStatement(t1.beginLine); }
+	)
+
+{ return s; }
+}
+
+// -----------------------------------------------------------------
+public ASTForStatement parseFor():
+{
+	Token t, t1;
+	ASTStatement s, s2, s3;
+	ASTExpression e;
+}
+{
+	t = <FOR> <LEFT_PARENTHESIS> t1 = <IDENTIFIER> (s = parseDeclarationStatement(t1) | s = parseAssignment(t1)) e = parseExpression() <SEMICOLON> s2 = parseForAssignment() <RIGHT_PARENTHESIS>
+	(
+	 	 s3 = parseStatement() { return new ASTForStatement(s, e, s2, s3, t.beginLine); }
+	)
+}
+
+// -----------------------------------------------------------------
+
+public ASTWhileStatement parseWhile():
+{
+  	Token t;
+  	ASTStatement s;
+	ASTExpression e;
+}
+{
+	t = <WHILE> <LEFT_PARENTHESIS>  e = parseExpression() <RIGHT_PARENTHESIS>
+		  s = parseStatement() { return new ASTWhileStatement(e, s, t.beginLine); }
+	
+
+}
+
+// -----------------------------------------------------------------
+
+public ASTDoWhileStatement parseDoWhile():
+{
+	Token t;
+  	ASTStatement s;
+	ASTExpression e;
+}
+{
+	t = <DO> s = parseStatement() <WHILE> e = parseExpression() { return new ASTDoWhileStatement(e, s, t.beginLine); }
+
+}
+
+// -----------------------------------------------------------------
+
+public ASTIfStatement parseIf():
+{
+	Token t;
+	ASTExpression e;
+	ASTStatement s1;
+	ASTStatement s2 = null;
+}
+{
+  t = <IF> <LEFT_PARENTHESIS > e = parseExpression() <RIGHT_PARENTHESIS> s1 = parseStatement() (<ELSE> s2 = parseStatement())? { return new ASTIfStatement(e, s1, s2, t.beginLine); }
+}
+
+/*********************************/
+
+public ASTStatement parseForAssignment():
+{
+	Token t, t1;
+	ASTVariable v;
+  	ASTExpression e;
+}
+{
+    t1 = <IDENTIFIER>
+	v = parseVariable(t1)
+
+	(t = <INCREMENT>  { e = new ASTOperatorExpression(new ASTVariableExpression(v, t.beginLine), new ASTIntegerLiteral(1, t.beginLine), 1, t.beginLine); }
+	| t = <DECREMENT> { e = new ASTOperatorExpression(new ASTVariableExpression(v, t.beginLine), new ASTIntegerLiteral(1, t.beginLine), 2, t.beginLine); }
+	| t = <GETS> e = parseExpression() )
+	{ return new ASTAssignmentStatement(v, e, t.beginLine); }
+}
+
+public ASTStatement parseAssignment(Token t1):
+{
+	Token t;
+	ASTVariable v;
+  	ASTExpression e;
+}
+{
+	v = parseVariable(t1)
+
+	(t = <INCREMENT>  { e = new ASTOperatorExpression(new ASTVariableExpression(v, t.beginLine), new ASTIntegerLiteral(1, t.beginLine), 1, t.beginLine); }
+	| t = <DECREMENT> { e = new ASTOperatorExpression(new ASTVariableExpression(v, t.beginLine), new ASTIntegerLiteral(1, t.beginLine), 2, t.beginLine); }
+	| t = <GETS> e = parseExpression() ) <SEMICOLON>
+	{ return new ASTAssignmentStatement(v, e, t.beginLine); }
+}
+
+public ASTVariableDefStatement parseDeclarationStatement(Token t1):
+{
+  Token t2;
+  ASTExpression e = null;
+  int i = 0;
+}
+{
+	t2 = <IDENTIFIER>
+	(<LEFT_BRACKET><RIGHT_BRACKET> { i++; })*
+	(<SEMICOLON> | <GETS> e = parseExpression() <SEMICOLON>)
+
+	{ return new ASTVariableDefStatement(t1.image, t2.image, i, e, t1.beginLine); }
+}
+
+public ASTInstanceVariableDefs parseClassInstanceVariables():
+{
+	ASTInstanceVariableDefs ivds = new ASTInstanceVariableDefs();
+	ASTInstanceVariableDef ivd;
+}
+{
+	(ivd = parseDeclarationInstance() { ivds.addElement(ivd); })*
+	{ return ivds; }
+}
+
+public ASTInstanceVariableDef parseDeclarationInstance():
+{
+  Token t1, t2;
+  ASTExpression e = null;
+  int i = 0;
+}
+{
+	t1 = <IDENTIFIER> t2 = <IDENTIFIER> {  i = 0; }
+	(<LEFT_BRACKET><RIGHT_BRACKET> { i++; })*
+	<SEMICOLON>
+
+	{ return new ASTInstanceVariableDef(t1.image, t2.image, i, t1.beginLine); }
+}
+
+public ASTFunctionCallStatement parseFunctionCall(Token t1):
+{
+	ASTFunctionCallStatement s;
+}
+{
+	<LEFT_PARENTHESIS> s = parseStatementActuals(t1) <RIGHT_PARENTHESIS> <SEMICOLON> { return s; }
+}
+
+/**************************************/
+
+public ASTExpression parseExpression():
+{
+    Token t;
+  	ASTExpression e1, e2;
+}
+{
+	e1 = e2() (t = <OR> e2 = e2() { e1 = new ASTOperatorExpression(e1, e2, t.image, t.beginLine); } )* { return e1; }
+}
+
+public ASTExpression e2():
+{
+    Token t;
+  	ASTExpression e1, e2;
+}
+{
+	e1 = e3() (t = <AND> e2 = e3() { e1 = new ASTOperatorExpression(e1, e2, t.image, t.beginLine); } )* { return e1; }
+}
+
+public ASTExpression e3():
+{
+  	Token t;
+  	ASTExpression e1, e2;
+}
+{
+	t = <BANG> e1 = e3() { return new ASTUnaryOperatorExpression(e1, t.image, t.beginLine); } | e1 = e4() { return e1; }
+}
+
+public ASTExpression e4():
+{
+  	Token t;
+	ASTExpression e1, e2;
+}
+{
+	e1 = e5() ((t = <EQUALS> | t = <DOES_NOT_EQUAL>) e2 = e5() { e1 = new ASTOperatorExpression(e1, e2, t.image, t.beginLine); } )* { return e1; }
+}
+
+public ASTExpression e5():
+{
+  	Token t;
+	ASTExpression e1, e2;
+}
+{
+	e1 = e6() ((t = <LESS_THAN> | t = <LESS_THAN_OR_EQUAL_TO> | t = <GREATER_THAN> | t = <GREATER_THAN_OR_EQUAL_TO>) e2 = e6() { e1 = new ASTOperatorExpression(e1, e2, t.image, t.beginLine); } )* { return e1; }
+}
+
+public ASTExpression e6():
+{
+  	Token t;
+	ASTExpression e1, e2;
+}
+{
+	e1 = e7()
+((t = <MINUS> | t = <PLUS>)
+	e2 = e7() {
+	   e1 = new ASTOperatorExpression(e1, e2, t.image, t.beginLine); } )* { return e1; }
+
+}
+
+public ASTExpression e7():
+{
+	Token t;
+	ASTExpression e1, e2;
+}
+{
+	e1 = baseExpression() ((t = <DIVIDE> | t = <MULTIPLY>) e2 = baseExpression() { e1 = new ASTOperatorExpression(e1, e2, t.image, t.beginLine); } )* { return e1; }
+}
+
+public ASTExpression baseExpression():
+{
+	Token t;
+	ASTVariable b;
+	ASTExpression e;
+}
+{
+	e = parseVariableExpression() { return e; }
+|   e = parseNewVariableExpression() { return e; }
+|	<MINUS> t = <INTEGER_LITERAL> { return new ASTOperatorExpression(new ASTIntegerLiteral(0, t.beginLine), new ASTIntegerLiteral(Integer.parseInt(t.image), t.beginLine), 2, t.beginLine); }
+|	t = <INTEGER_LITERAL> { return new ASTIntegerLiteral(Integer.parseInt(t.image), t.beginLine); }
+|	t = <TRUE> { return new ASTBooleanLiteral(true, t.beginLine); }
+|	t = <FALSE> { return new ASTBooleanLiteral(false, t.beginLine); }
+|	t = <LEFT_PARENTHESIS> { e = parseExpression(); } <RIGHT_PARENTHESIS> { return e; }
+}
+
+public ASTFunctionCallExpression parseExpressionActuals(Token t):
+{
+  ASTFunctionCallExpression fce = new ASTFunctionCallExpression(t.image, t.beginLine);
+  ASTExpression e;
+}
+{
+	(e = parseExpression() { fce.addElement(e); })* (<COMMA> e = parseExpression() { fce.addElement(e); })*
+
+	{ return fce; }
+}
+
+public ASTFunctionCallStatement parseStatementActuals(Token t):
+{
+  ASTFunctionCallStatement fcs = new ASTFunctionCallStatement(t.image, t.beginLine);
+  ASTExpression e;
+}
+{
+	(e = parseExpression() { fcs.addElement(e); })* (<COMMA> e = parseExpression() { fcs.addElement(e); })*
+
+	{ return fcs; }
+}
+
+public ASTFormals parseFormals():
+{
+  Token t, t2;
+  ASTFormals fs = new ASTFormals();
+  int i = 0;
+}
+{
+	(t = <IDENTIFIER> t2 = <IDENTIFIER> ((<LEFT_BRACKET><RIGHT_BRACKET>) { i++; })* { fs.addElement(new ASTFormal(t.image, t2.image, i, t.beginLine)); i = 0; })? (<COMMA> t = <IDENTIFIER> t2 = <IDENTIFIER> ((<LEFT_BRACKET><RIGHT_BRACKET>) { i++; })* { fs.addElement(new ASTFormal(t.image, t2.image, i, t.beginLine)); i = 0; })*
+	{ return fs; }
+}
+
+/**************************************/
+
+public ASTExpression parseNewVariableExpression():
+{
+	Token t;
+	ASTVariable b;
+	ASTExpression e;
+	int i = 1;
+}
+{
+	<NEW> t = <IDENTIFIER> { b = new ASTBaseVariable(t.image, t.beginLine); }
+	((<LEFT_PARENTHESIS> <RIGHT_PARENTHESIS>) { return new ASTNewClassExpression(t.image, t.beginLine); }
+	| <LEFT_BRACKET> e = parseExpression() <RIGHT_BRACKET> (<LEFT_BRACKET> <RIGHT_BRACKET> { i++; })* { return new ASTNewArrayExpression(t.image, e, i, t.beginLine); }
+	)
+	{ return new ASTVariableExpression(b, t.beginLine); }
+}
+
+public ASTExpression parseVariableExpression():
+{
+	Token t;
+	ASTVariable b;
+	ASTExpression e;
+}
+{
+	t = <IDENTIFIER> { b = new ASTBaseVariable(t.image, t.beginLine); }
+	((<LEFT_PARENTHESIS> e = parseExpressionActuals(t) <RIGHT_PARENTHESIS>) { return e; }
+	| ((<LEFT_BRACKET> e = parseExpression() <RIGHT_BRACKET>) { b = new ASTArrayVariable(b, e, t.beginLine); }
+	  | (<PERIOD> t = <IDENTIFIER >) { b = new ASTClassVariable(b, t.image, t.beginLine); })*
+	)
+	{ return new ASTVariableExpression(b, t.beginLine); }
+}
+
+public ASTVariable parseVariable(Token t):
+{
+	ASTVariable b;
+	ASTExpression e;
+}
+{
+	{ b = new ASTBaseVariable(t.image, t.beginLine); }
+	(((<LEFT_BRACKET> e = parseExpression() <RIGHT_BRACKET>) { b = new ASTArrayVariable(b, e, t.beginLine); }
+	  | (<PERIOD> t = <IDENTIFIER >) { b = new ASTClassVariable(b, t.image, t.beginLine); })*
+	)
+	{ return b; }
+}
+
+// -----------------------------------------------------------------
+
+public ASTClass parseClass():
+{
+  	Token t;
+	ASTInstanceVariableDefs ivd;
+}
+{	
+	<CLASS> t = <IDENTIFIER> <LEFT_BRACE > ivd = parseClassInstanceVariables() <RIGHT_BRACE> { return new ASTClass(t.image, ivd, t.beginLine); }
+}
+
+// -----------------------------------------------------------------
+
+public ASTFunctionDefinition parseFunction():
+{
+	Token t1, t2;
+	ASTFormals f;
+	ASTStatement s = null;
+}
+{
+	t1 = <IDENTIFIER> t2 = <IDENTIFIER> <LEFT_PARENTHESIS> f = parseFormals() <RIGHT_PARENTHESIS> (s = parseBlock() { return new ASTFunction(t1.image, t2.image, f, s, t1.beginLine); } | <SEMICOLON> { return new ASTPrototype(t1.image, t2.image, f, t1.beginLine); })
+}
+
+// -----------------------------------------------------------------
+public ASTReturnStatement parseReturn():
+{
+	Token t;
+	ASTExpression e = null;
+}
+{
+	t = <RETURN> (e = parseExpression())* <SEMICOLON> { return new ASTReturnStatement(e, t.beginLine); }
+}
+// -----------------------------------------------------------------
+

@@ -1,0 +1,433 @@
+/* Simple Connect4 game. Players take turns placing
+   pieces on a board.  A piece may be placed only on
+   the bottom row, or directly above a previously placed
+   piece.  Play continues until a player gets 4 peices
+   in a row, horizontally, vertically, or diagonally.
+   Player uses (1) piece, while the computer uses (2).
+*/
+
+void PrintBoard(int board[][]);
+int swap(int piece);
+void DoMove(int board[][], int col, int piece);
+boolean win(int board[][], int lastmove);
+void ClearBoard(int board[][]);
+boolean legal(int move,int board[][]);
+int GetBoard(int board[][], int col, int row);
+int open1(int board[][], int x, int y, int color);
+int half_open2(int board[][], int x, int y, int color);
+int open2(int board[][], int x, int y, int color);
+int half_open3(int board[][], int x, int y, int color);
+int open3(int board[][], int x, int y, int color);
+int four(int board[][], int x, int y, int color);
+void printStatus(int board[][]);
+
+
+void printStatus(int board[][]) {
+    int i;
+    int j;
+    
+
+    int open1_1 = 0;
+    int open1_2 = 0;
+    int half_open2_1 = 0;
+    int half_open2_2 = 0;
+    int open2_1 = 0;
+    int open2_2 = 0;
+    int half_open3_1 = 0;
+    int half_open3_2 = 0;
+    int open3_1 = 0;
+    int open3_2 = 0;
+    int four_1 = 0;
+    int four_2 = 0;
+
+    for (i=0;i<10;i++)
+	for (j=0;j<10;j++) {
+	    open1_1 = open1_1 + open1(board,i,j,1);
+	    open1_2 = open1_2 + open1(board,i,j,2);
+	    half_open2_1 = half_open2_1 + half_open2(board,i,j,1);
+	    half_open2_2 = half_open2_2 + half_open2(board,i,j,2);
+	    open2_1 = open2_1 + open2(board,i,j,1);
+	    open2_2 = open2_2 + open2(board,i,j,2);
+
+	    half_open3_1 = half_open3_1 + half_open3(board,i,j,1);
+	    half_open3_2 = half_open3_2 + half_open3(board,i,j,2);
+	    open3_1 = open3_1 + open3(board,i,j,1);
+	    open3_2 = open3_2 + open3(board,i,j,2);
+	    open4_1 = open4_1 + four(board,i,j,1);
+	    open4_2 = open4_2 + four(board,i,j,2);
+	}
+    Print(open1_1); Print(open1_2); Println();
+    Print(half_open2_1); Print(half_open2_2); Println();
+    Print(open2_1); Print(open2_2); Println();
+    Print(half_open3_1); Print(half_open3_2); Println();
+    Print(open3_1); Print(open3_2); Println();
+    Print(four_1); Print(four_2); Println();
+	    
+}
+
+
+
+        
+void main() {
+    int board[][];
+    int i;
+    boolean done = false;
+    int player = 1;
+    int move;
+    int numMoves = 0;
+    int winner = 0;
+
+    board = new int[10][]; 
+    for (i=0; i<10; i++)
+       board[i] = new int[10]; 
+    ClearBoard(board); 
+
+    while (!done) {
+	PrintBoard(board);
+	do {
+	    move = Read();
+	} while (!legal(move,board));
+	DoMove(board, move, player);
+	numMoves++;
+	
+	if (win(board,move)) {
+	    /*done = true; */
+	    winner = player;
+	    }
+	if (numMoves == 100) {
+	    done = true;
+	    winner = 0;
+	} 
+	player = swap(player); 
+    }
+    PrintBoard(board);
+    printStatus(board);
+    Println();
+    Println();
+    Print(winner);
+    Println();
+ }
+
+boolean legal(int move,int board[][]) {
+    if ((move < 0) || (move > 9))
+	return false;
+    if (board[0][move] != 0)
+	return false;
+    return true;
+}
+
+void ClearBoard(int board[][]) {
+    int i;
+    int j;
+
+    for (i=0; i<10; i++)
+	for (j=0; j<10; j++)
+	   board[i][j] = 0;
+}
+
+
+void PrintBoard(int board[][]) {
+     int i;
+     int j;
+
+     for (i=0; i<10;i++) {
+        for (j=0; j<10; j++) 
+          Print(board[i][j]);
+        Println();
+     }
+     Println();
+     for (i=0; i<10; i++)
+	 Print(i);
+     Println();
+     Println();
+}
+
+int swap(int piece) {
+    if (piece == 1)
+	return 2;
+    else
+	return 1;
+}
+
+void DoMove(int board[][], int col, int piece) {
+    
+    int i;
+    
+    for (i=1; i<10; i++) {
+	if (board[i][col] != 0) {
+	    board[i-1][col] = piece;
+	    return;
+	}
+    }
+    board[9][col] = piece;
+
+}
+boolean win(int board[][], int movecol) {
+    
+    int moverow;
+    int length;
+    int color;
+    int delta;
+    
+    for (moverow=0; moverow <10 && GetBoard(board,moverow,movecol) == 0; moverow++);
+    if (GetBoard(board,moverow,movecol) == 0) return false;
+    color = board[moverow][movecol];
+    length = 0;
+    delta = 0;
+
+    while ((moverow+delta < 10 ) && GetBoard(board,moverow+delta,movecol) == color) {
+	length++;
+	delta++;
+    }
+    if (length >= 4) return true;
+    length = 0;
+    delta = 0;
+    while ((movecol+delta < 10) && GetBoard(board,moverow,movecol+delta) == color) {
+	length++;
+	delta++;
+    }
+    delta = 1;
+    while ((movecol-delta >= 0) && GetBoard(board,moverow,movecol-delta) == color) {
+	length++;
+	delta++;
+    }
+    if (length >= 4) return true;
+    delta = 0;
+    length = 0;
+    
+    while (movecol+delta < 10 && moverow +delta < 10 && 
+	   GetBoard(board,moverow+delta,movecol+delta) == color) {
+	length++;
+	delta++;
+    }
+    delta = 1;
+    while (movecol-delta >= 0 && moverow - delta >= 0 && 
+	   GetBoard(board,moverow-delta,movecol-delta) == color) {
+	length++;
+	delta++;
+    }
+
+    if (length >= 4) return true;
+
+    delta = 0;
+    length = 0;
+
+    while (movecol+delta < 10 && moverow -delta >= 0 && 
+	   GetBoard(board,moverow+delta,movecol-delta) == color) {
+	length++;
+	delta++;
+    }
+    delta = 1;
+    while (movecol-delta >= 0 && moverow + delta < 10 && 
+	   GetBoard(board,moverow-delta,movecol+delta) == color) {
+	length++;
+	delta++;
+    }
+    if (length >= 4) return true;
+
+    return false;
+}
+
+
+int GetBoard(int board[][], int col, int row) {
+    if ((col < 0) || (col > 9) || (row < 0) || (row > 9))
+	return 3;
+    return board[col][row];
+}
+
+
+int open1(int board[][], int x, int y, int color) {
+    int total = 0;
+    if ((GetBoard(board,x,y)==color) &&
+	(GetBoard(board,x-1,y) == 0) && (GetBoard(board,x+1,y) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y-1) == 0) && (GetBoard(board,x,y+1) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y-1) == 0) && (GetBoard(board,x+1,y+1) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y+1) == 0) && (GetBoard(board,x+1,y-1) == 0))
+	total++;
+    return total;
+}
+int half_open2(int GetBoard(board,][], int x, int y, int color) {
+    int total = 0;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y) == swap(color)) && 
+	(GetBoard(board,x+1,y) == color) && 
+	 (GetBoard(board,x+2,y) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y-1) == swap(color)) && 
+	(GetBoard(board,x,y+1) == color) &&
+	(GetBoard(board,x,y+2) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y-1) == swap(color)) && 
+	(GetBoard(board,x+1,y+1) == color) &&
+	(GetBoard(board,x+2,y+2) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y+1) == swap(color)) && 
+	(GetBoard(board,x+1,y-1) == color) &&
+	(GetBoard(board,x+2,y-2) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y) == 0) && 
+	(GetBoard(board,x+1,y) == color) && 
+	(GetBoard(board,x+2,y) == swap(color)))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y-1) == 0) && 
+	(GetBoard(board,x,y+1) == color) &&
+	(GetBoard(board,x,y+2) == swap(color)))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y-1) == 0) && 
+	(GetBoard(board,x+1,y+1) == color) &&
+	(GetBoard(board,x+2,y+2) == swap(color)))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y+1) == 0) && 
+	(GetBoard(board,x+1,y-1) == color) &&
+	(GetBoard(board,x+2,y-2) == swap(color)))
+	total++;
+    return total;
+}
+
+int open2(int GetBoard(board,][], int x, int y, int color) {
+    int total = 0;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y) == 0) && 
+	(GetBoard(board,x+1,y) == color) && 
+	 (GetBoard(board,x+2,y) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y-1) == 0) && 
+	(GetBoard(board,x,y+1) == color) &&
+	(GetBoard(board,x,y+2) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y-1) == 0) && 
+	(GetBoard(board,x+1,y+1) == color) &&
+	(GetBoard(board,x+2,y+2) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y+1) == 0) && 
+	(GetBoard(board,x+1,y-1) == color) &&
+	(GetBoard(board,x+2,y-2) == 0))
+	total++;
+    return total;
+}
+int half_open3(int GetBoard(board,][], int x, int y, int color) {
+    int total = 0;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y) == swap(color)) && 
+	(GetBoard(board,x+1,y) == color) && 
+	(GetBoard(board,x+2,y) == color) &&
+	(GetBoard(board,x+3,y) ==0) )
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y-1) == swap(color)) && 
+	(GetBoard(board,x,y+1) == color) &&
+	(GetBoard(board,x,y+2) == color) &&
+	(GetBoard(board,x,y+3) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y-1) == swap(color)) && 
+	(GetBoard(board,x+1,y+1) == color) &&
+	(GetBoard(board,x+2,y+2) == color) &&
+	(GetBoard(board,x+3,y+3) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y+1) == swap(color)) && 
+	(GetBoard(board,x+1,y-1) == color) &&
+	(GetBoard(board,x+2,y-2) == color) &&
+	(GetBoard(board,x+3,y-3) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y) == 0) && 
+	(GetBoard(board,x+1,y) == color) && 
+	(GetBoard(board,x+2,y) == color) && 
+	(GetBoard(board,x+3,y) == swap(color)))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y-1) == 0) && 
+	(GetBoard(board,x,y+1) == color) &&
+	(GetBoard(board,x,y+2) == color) &&
+	(GetBoard(board,x,y+3) == swap(color)))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y-1) == 0) && 
+	(GetBoard(board,x+1,y+1) == color) &&
+	(GetBoard(board,x+2,y+2) == color) &&
+	(GetBoard(board,x+3,y+3) == swap(color)))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y+1) == 0) && 
+	(GetBoard(board,x+1,y-1) == color) &&
+	(GetBoard(board,x+2,y-2) == color) &&
+	(GetBoard(board,x+3,y-3) == swap(color)))
+	total++;
+    return total;
+}
+int open3(int GetBoard(board,][], int x, int y, int color) {
+    int total = 0;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y) == 0) && 
+	(GetBoard(board,x+1,y) == color) && 
+	(GetBoard(board,x+2,y) == color) &&
+	(GetBoard(board,x+3,y) ==0) )
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y-1) == 0) && 
+	(GetBoard(board,x,y+1) == color) &&
+	(GetBoard(board,x,y+2) == color) &&
+	(GetBoard(board,x,y+3) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y-1) == 0) && 
+	(GetBoard(board,x+1,y+1) == color) &&
+	(GetBoard(board,x+2,y+2) == color) &&
+	(GetBoard(board,x+3,y+3) == 0))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x-1,y+1) == 0) && 
+	(GetBoard(board,x+1,y-1) == color) &&
+	(GetBoard(board,x+2,y-2) == color) &&
+	(GetBoard(board,x+3,y-3) == 0))
+	total++;
+    return total;
+}
+
+int four(int GetBoard(board,][], int x, int y, int color) {
+    int total = 0;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x+1,y) == color) && 
+	(GetBoard(board,x+2,y) == color) &&
+	(GetBoard(board,x+3,y) == color) &&
+	(GetBoard(board,x+4,y) == color) )
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x,y+1) == color) &&
+	(GetBoard(board,x,y+2) == color) &&
+	(GetBoard(board,x,y+3) == color) &&
+	(GetBoard(board,x,y+4) == color))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x+1,y+1) == color) &&
+	(GetBoard(board,x+2,y+2) == color) &&
+	(GetBoard(board,x+3,y+3) == color) &&
+	(GetBoard(board,x+4,y+4) == color))
+	total++;
+    if ((GetBoard(board,x,y) == color) &&
+	(GetBoard(board,x+2,y-2) == color) &&
+	(GetBoard(board,x+3,y-3) == color) &&
+	(GetBoard(board,x+4,y-4) == color))
+	total++;
+    return total;
+}
+
+
